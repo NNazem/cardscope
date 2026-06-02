@@ -1,15 +1,27 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
+	sqlitestore "pokemon-binder-finder/internal/adapters/out/persistence/sqlite"
 	"pokemon-binder-finder/internal/application/ports"
+	"pokemon-binder-finder/internal/domain"
 )
 
 type Dependencies struct {
-	Catalog ports.CardCatalog
+	Catalog   ports.CardCatalog
+	Searches  SearchJobs
+	AssetsDir string
+}
+
+type SearchJobs interface {
+	Create(context.Context, string, string) (domain.SearchJob, error)
+	Get(context.Context, string) (domain.SearchJob, error)
+	Results(context.Context, string, string) ([]domain.SearchResult, error)
 }
 
 func NewRouter(deps ...Dependencies) http.Handler {
@@ -42,7 +54,57 @@ func NewRouter(deps ...Dependencies) http.Handler {
 			writeJSON(w, http.StatusOK, map[string]string{"status": "synced"})
 		})
 	}
+	if dependencies.Searches != nil {
+		mux.HandleFunc("POST /api/search-jobs", func(w http.ResponseWriter, r *http.Request) {
+			var input struct {
+				CardID       string `json:"cardId"`
+				ListingQuery string `json:"listingQuery"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+			job, err := dependencies.Searches.Create(r.Context(), input.CardID, input.ListingQuery)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err)
+				return
+			}
+			writeJSON(w, http.StatusAccepted, job)
+		})
+		mux.HandleFunc("GET /api/search-jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
+			job, err := dependencies.Searches.Get(r.Context(), r.PathValue("id"))
+			if err != nil {
+				writeStoreError(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, job)
+		})
+		mux.HandleFunc("GET /api/search-jobs/{id}/results", func(w http.ResponseWriter, r *http.Request) {
+			bucket := r.URL.Query().Get("bucket")
+			if bucket != domain.BucketConfirmed && bucket != domain.BucketPossible {
+				writeError(w, http.StatusBadRequest, errors.New("bucket must be confirmed or possible"))
+				return
+			}
+			results, err := dependencies.Searches.Results(r.Context(), r.PathValue("id"), bucket)
+			if err != nil {
+				writeStoreError(w, err)
+				return
+			}
+			writeJSON(w, http.StatusOK, results)
+		})
+	}
+	if dependencies.AssetsDir != "" {
+		mux.Handle("/api/assets/", http.StripPrefix("/api/assets/", http.FileServer(http.Dir(dependencies.AssetsDir))))
+	}
 	return withCORS(mux)
+}
+
+func writeStoreError(w http.ResponseWriter, err error) {
+	if sqlitestore.IsNotFound(err) {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+	writeError(w, http.StatusInternalServerError, err)
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
