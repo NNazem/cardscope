@@ -45,9 +45,9 @@ eBay è un adapter di `ListingSource`, Pokémon TCG API è un adapter di `CardCa
 
 ## Matcher Locale
 
-Il matcher iniziale è implementato interamente in Go e non invia immagini a servizi remoti. Esegue una ricerca multi-scala locale e produce coordinate e punteggio. Ollama interviene soltanto sui candidati ambigui e il job continua in modalità degradata se non è disponibile.
+Il container usa GoCV/OpenCV con feature ORB, BFMatcher e omografia RANSAC per produrre coordinate e punteggio senza inviare immagini a servizi remoti. Ollama interviene soltanto sui candidati ambigui e il job continua in modalità degradata se non è disponibile.
 
-Il matcher è volutamente isolato dietro `ImageMatcher`: prima di usare il prodotto per scansioni ad alto volume va sostituito o affiancato con l'adapter GoCV/OpenCV pianificato, usando feature locali e omografia per gestire prospettiva, riflessi e carte parzialmente coperte. Il matcher corrente rende eseguibile il flusso completo, ma non offre ancora quella robustezza.
+Il matcher resta isolato dietro `ImageMatcher`. I test host usano un fallback Go puro per non richiedere OpenCV installato localmente; l'immagine Docker abilita l'adapter GoCV tramite build tag.
 
 ## Verifica
 

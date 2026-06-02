@@ -10,16 +10,20 @@ import (
 )
 
 func TestMatchFindsReferenceInScene(t *testing.T) {
-	reference := image.NewRGBA(image.Rect(0, 0, 60, 84))
-	for y := 0; y < 84; y++ {
-		for x := 0; x < 60; x++ {
-			reference.Set(x, y, color.RGBA{R: uint8(x * 4), G: uint8(y * 3), B: uint8((x + y) * 2), A: 255})
+	reference := image.NewRGBA(image.Rect(0, 0, 180, 252))
+	for y := 0; y < 252; y++ {
+		for x := 0; x < 180; x++ {
+			value := uint8((x*31 + y*17 + x*y) % 255)
+			if (x/12+y/12)%2 == 0 {
+				value = 255 - value
+			}
+			reference.Set(x, y, color.RGBA{R: value, G: uint8(x*y) ^ value, B: uint8(x*7+y*13) ^ value, A: 255})
 		}
 	}
-	scene := image.NewRGBA(image.Rect(0, 0, 180, 252))
-	for y := 0; y < 84; y++ {
-		for x := 0; x < 60; x++ {
-			scene.Set(60+x, 84+y, reference.At(x, y))
+	scene := image.NewRGBA(image.Rect(0, 0, 540, 756))
+	for y := 0; y < 252; y++ {
+		for x := 0; x < 180; x++ {
+			scene.Set(180+x, 252+y, reference.At(x, y))
 		}
 	}
 	var referenceData, sceneData bytes.Buffer
