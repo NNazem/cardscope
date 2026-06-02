@@ -1,0 +1,8 @@
+.env
+data/*
+!data/.gitkeep
+frontend/node_modules/
+frontend/dist/
+backend/pokemon-binder-finder
+.DS_Store
+
