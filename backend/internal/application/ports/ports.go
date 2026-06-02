@@ -17,7 +17,7 @@ type ListingSource interface {
 }
 
 type ImageFetcher interface {
-	Fetch(context.Context, string) ([]byte, error)
+	Fetch(context.Context, string) (domain.ImageAsset, error)
 }
 
 type ImageMatcher interface {

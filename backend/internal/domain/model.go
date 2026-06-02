@@ -31,6 +31,11 @@ type MatchCandidate struct {
 	Reason     string         `json:"reason"`
 }
 
+type ImageAsset struct {
+	Data      []byte
+	PublicURL string
+}
+
 type SearchJob struct {
 	ID               string     `json:"id"`
 	CardID           string     `json:"cardId"`
