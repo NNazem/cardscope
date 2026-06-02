@@ -1,0 +1,338 @@
+openapi: 3.0.3
+info:
+  title: Pokemon Binder Finder API
+  version: 1.0.0
+  description: API locale per cercare carte Pokemon nelle immagini degli annunci eBay.
+servers:
+  - url: http://localhost:8080
+    description: Backend locale
+tags:
+  - name: Health
+  - name: Catalog
+  - name: Search Jobs
+  - name: Assets
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Verifica che il backend sia disponibile
+      operationId: getHealth
+      responses:
+        "200":
+          description: Backend disponibile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+              example:
+                status: ok
+  /api/catalog/sync:
+    post:
+      tags: [Catalog]
+      summary: Sincronizza il catalogo Pokemon TCG
+      operationId: syncCatalog
+      responses:
+        "200":
+          description: Catalogo sincronizzato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+              example:
+                status: synced
+        "502":
+          $ref: "#/components/responses/Error"
+  /api/cards:
+    get:
+      tags: [Catalog]
+      summary: Cerca carte nel catalogo locale
+      operationId: searchCards
+      parameters:
+        - name: query
+          in: query
+          description: Testo da cercare nel nome della carta
+          schema:
+            type: string
+          example: Charizard
+        - name: limit
+          in: query
+          description: Numero massimo di risultati, da 1 a 50
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          example: 10
+      responses:
+        "200":
+          description: Carte trovate
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Card"
+  /api/search-jobs:
+    post:
+      tags: [Search Jobs]
+      summary: Avvia una scansione degli annunci
+      operationId: createSearchJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSearchJob"
+            example:
+              cardId: base1-4
+              listingQuery: binder pokemon
+      responses:
+        "202":
+          description: Job creato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchJob"
+        "400":
+          $ref: "#/components/responses/Error"
+  /api/search-jobs/{id}:
+    get:
+      tags: [Search Jobs]
+      summary: Legge lo stato di una scansione
+      operationId: getSearchJob
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Stato del job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchJob"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/search-jobs/{id}/results:
+    get:
+      tags: [Search Jobs]
+      summary: Elenca i risultati di una scansione
+      operationId: getSearchJobResults
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+        - name: bucket
+          in: query
+          required: true
+          description: Livello di confidenza richiesto
+          schema:
+            type: string
+            enum: [confirmed, possible]
+          example: confirmed
+      responses:
+        "200":
+          description: Risultati del job
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/assets/{filename}:
+    get:
+      tags: [Assets]
+      summary: Scarica un'immagine salvata nella cache locale
+      operationId: getAsset
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Immagine disponibile
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Immagine non trovata
+components:
+  parameters:
+    JobId:
+      name: id
+      in: path
+      required: true
+      description: Identificativo del job restituito dalla creazione della scansione
+      schema:
+        type: string
+      example: 0123456789abcdef0123456789abcdef
+  responses:
+    Error:
+      description: Errore
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+    SyncStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: synced
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    Card:
+      type: object
+      required: [id, name, setId, setName, number, imageUrl]
+      properties:
+        id:
+          type: string
+          example: base1-4
+        name:
+          type: string
+          example: Charizard
+        setId:
+          type: string
+          example: base1
+        setName:
+          type: string
+          example: Base
+        number:
+          type: string
+          example: "4"
+        imageUrl:
+          type: string
+          format: uri
+    CreateSearchJob:
+      type: object
+      required: [cardId, listingQuery]
+      properties:
+        cardId:
+          type: string
+          example: base1-4
+        listingQuery:
+          type: string
+          example: binder pokemon
+    SearchJob:
+      type: object
+      required:
+        - id
+        - cardId
+        - listingQuery
+        - status
+        - listingsFound
+        - imagesAnalyzed
+        - imagesTotal
+        - confirmedMatches
+        - possibleMatches
+        - visionDegraded
+        - createdAt
+      properties:
+        id:
+          type: string
+        cardId:
+          type: string
+        listingQuery:
+          type: string
+        status:
+          type: string
+          enum: [queued, fetching, analyzing, completed, failed]
+        listingsFound:
+          type: integer
+        imagesAnalyzed:
+          type: integer
+        imagesTotal:
+          type: integer
+        confirmedMatches:
+          type: integer
+        possibleMatches:
+          type: integer
+        visionDegraded:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+    PolygonPoint:
+      type: object
+      required: [x, y]
+      properties:
+        x:
+          type: integer
+        y:
+          type: integer
+    SearchResult:
+      type: object
+      required:
+        - id
+        - jobId
+        - listingId
+        - listingUrl
+        - listingTitle
+        - sourceImageUrl
+        - cachedImageUrl
+        - polygon
+        - confidence
+        - bucket
+        - reason
+      properties:
+        id:
+          type: string
+        jobId:
+          type: string
+        listingId:
+          type: string
+        listingUrl:
+          type: string
+          format: uri
+        listingTitle:
+          type: string
+        sourceImageUrl:
+          type: string
+          format: uri
+        cachedImageUrl:
+          type: string
+          example: /api/assets/0123456789abcdef.jpg
+        cropImageUrl:
+          type: string
+        polygon:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolygonPoint"
+        confidence:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        bucket:
+          type: string
+          enum: [confirmed, possible]
+        reason:
+          type: string
