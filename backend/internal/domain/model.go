@@ -1,6 +1,10 @@
 package domain
 
+import "errors"
+
 import "time"
+
+var ErrNotFound = errors.New("not found")
 
 type Card struct {
 	ID        string `json:"id"`

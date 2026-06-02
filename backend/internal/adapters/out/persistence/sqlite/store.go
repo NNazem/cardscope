@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -102,6 +101,9 @@ func (s *Store) GetCard(ctx context.Context, id string) (domain.Card, error) {
 	var card domain.Card
 	err := s.db.QueryRowContext(ctx, `SELECT id,name,set_id,set_name,number,image_url FROM cards WHERE id=?`, id).
 		Scan(&card.ID, &card.Name, &card.SetID, &card.SetName, &card.Number, &card.ImageURL)
+	if err == sql.ErrNoRows {
+		err = domain.ErrNotFound
+	}
 	return card, err
 }
 
@@ -140,6 +142,9 @@ func (s *Store) GetJob(ctx context.Context, id string) (domain.SearchJob, error)
 		&job.ListingsFound, &job.ImagesAnalyzed, &job.ImagesTotal, &job.ConfirmedMatches,
 		&job.PossibleMatches, &job.VisionDegraded, &job.Error, &created, &completed)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			err = domain.ErrNotFound
+		}
 		return job, err
 	}
 	job.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)
@@ -181,8 +186,6 @@ func (s *Store) ListResults(ctx context.Context, jobID, bucket string) ([]domain
 	}
 	return results, rows.Err()
 }
-
-func IsNotFound(err error) bool { return errors.Is(err, sql.ErrNoRows) }
 
 func (s *Store) Ping(ctx context.Context) error {
 	if err := s.db.PingContext(ctx); err != nil {

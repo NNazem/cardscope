@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 
-	sqlitestore "pokemon-binder-finder/internal/adapters/out/persistence/sqlite"
 	"pokemon-binder-finder/internal/application/ports"
 	"pokemon-binder-finder/internal/domain"
 )
@@ -100,7 +99,7 @@ func NewRouter(deps ...Dependencies) http.Handler {
 }
 
 func writeStoreError(w http.ResponseWriter, err error) {
-	if sqlitestore.IsNotFound(err) {
+	if errors.Is(err, domain.ErrNotFound) {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
