@@ -20,7 +20,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Aprire `http://localhost:5173`, premere `Sincronizza catalogo`, cercare una stampa e avviare una scansione. Il primo import del catalogo può richiedere tempo. I job e i risultati restano in `data/app.db`; le immagini scaricate sono in `data/images`.
+Aprire `http://localhost:5173`, premere `Sincronizza catalogo`, cercare una stampa e avviare una scansione. Il primo import del catalogo può richiedere tempo. Job, risultati e immagini restano nel volume Docker `app-data`.
 
 Marketplace aggiuntivi richiedono soltanto una modifica alla configurazione:
 
@@ -59,4 +59,3 @@ cd ../frontend
 npm install
 npm run build
 ```
-
