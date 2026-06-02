@@ -86,7 +86,7 @@ func (s *Store) SearchCards(ctx context.Context, query string, limit int) ([]dom
 		return nil, err
 	}
 	defer rows.Close()
-	var cards []domain.Card
+	cards := make([]domain.Card, 0)
 	for rows.Next() {
 		var card domain.Card
 		if err := rows.Scan(&card.ID, &card.Name, &card.SetID, &card.SetName, &card.Number, &card.ImageURL); err != nil {
@@ -172,7 +172,7 @@ func (s *Store) ListResults(ctx context.Context, jobID, bucket string) ([]domain
 		return nil, err
 	}
 	defer rows.Close()
-	var results []domain.SearchResult
+	results := make([]domain.SearchResult, 0)
 	for rows.Next() {
 		var result domain.SearchResult
 		var polygon string

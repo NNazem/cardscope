@@ -12,7 +12,9 @@ func TestSearchMapsListingsAndImages(t *testing.T) {
 	source := New("id", "secret")
 	source.client.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		payload := `{"access_token":"token","expires_in":3600}`
-		if req.Method == http.MethodGet {
+		if strings.Contains(req.URL.Path, "/item/") {
+			payload = `{"image":{"imageUrl":"https://example/1.jpg"},"additionalImages":[{"imageUrl":"https://example/2.jpg"},{"imageUrl":"https://example/3.jpg"}]}`
+		} else if req.Method == http.MethodGet {
 			if got := req.Header.Get("X-EBAY-C-MARKETPLACE-ID"); got != "EBAY_IT" {
 				t.Fatalf("unexpected marketplace: %s", got)
 			}
@@ -24,7 +26,7 @@ func TestSearchMapsListingsAndImages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listings) != 1 || len(listings[0].ImageURLs) != 2 {
+	if len(listings) != 1 || len(listings[0].ImageURLs) != 3 {
 		t.Fatalf("unexpected listings: %#v", listings)
 	}
 }

@@ -21,6 +21,7 @@ type Source struct {
 	clientSecret string
 	tokenURL     string
 	searchURL    string
+	itemURL      string
 	mu           sync.Mutex
 	token        string
 	tokenExpiry  time.Time
@@ -33,6 +34,7 @@ func New(clientID, clientSecret string) *Source {
 		clientSecret: clientSecret,
 		tokenURL:     "https://api.ebay.com/identity/v1/oauth2/token",
 		searchURL:    "https://api.ebay.com/buy/browse/v1/item_summary/search",
+		itemURL:      "https://api.ebay.com/buy/browse/v1/item/",
 	}
 }
 
@@ -78,11 +80,42 @@ func (s *Source) Search(ctx context.Context, query, marketplace string, limit in
 		for _, candidate := range item.Images {
 			images = appendImage(images, candidate.URL)
 		}
+		if detailImages, detailErr := s.getImages(ctx, token, marketplace, item.ID); detailErr == nil {
+			for _, candidate := range detailImages {
+				images = appendImage(images, candidate)
+			}
+		}
 		listings = append(listings, domain.Listing{
 			ID: item.ID, Title: item.Title, URL: item.URL, ImageURLs: images, Marketplace: marketplace,
 		})
 	}
 	return listings, nil
+}
+
+func (s *Source) getImages(ctx context.Context, token, marketplace, itemID string) ([]string, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, s.itemURL+url.PathEscape(itemID), nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-EBAY-C-MARKETPLACE-ID", marketplace)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ebay item api returned %s", resp.Status)
+	}
+	var payload struct {
+		Image  image   `json:"image"`
+		Images []image `json:"additionalImages"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	images := appendImage(nil, payload.Image.URL)
+	for _, candidate := range payload.Images {
+		images = appendImage(images, candidate.URL)
+	}
+	return images, nil
 }
 
 type image struct {
