@@ -47,15 +47,14 @@ eBay è un adapter di `ListingSource`, Pokémon TCG API è un adapter di `CardCa
 
 Il container usa GoCV/OpenCV con feature ORB, BFMatcher e omografia RANSAC per produrre coordinate e punteggio senza inviare immagini a servizi remoti. Ollama interviene soltanto sui candidati ambigui e il job continua in modalità degradata se non è disponibile.
 
-Il matcher resta isolato dietro `ImageMatcher`. I test host usano un fallback Go puro per non richiedere OpenCV installato localmente; l'immagine Docker abilita l'adapter GoCV tramite build tag.
+Il matcher resta isolato dietro `ImageMatcher`. OpenCV e CGO sono requisiti del backend anche durante lo sviluppo locale; l'immagine Docker installa le librerie necessarie.
 
 ## Verifica
 
 ```sh
-cd backend
-GOCACHE=/private/tmp/pokemon-binder-go-build go test ./...
+docker build -t pokemon-binder-finder-backend ./backend
 
-cd ../frontend
+cd frontend
 npm install
 npm run build
 ```

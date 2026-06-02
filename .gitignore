@@ -6,3 +6,8 @@ frontend/dist/
 frontend/*.tsbuildinfo
 backend/pokemon-binder-finder
 .DS_Store
+/.idea/.gitignore
+/.idea/go.imports.xml
+/.idea/modules.xml
+/.idea/pokemon-binder-finder.iml
+/.idea/vcs.xml
