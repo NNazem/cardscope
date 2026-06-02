@@ -30,7 +30,7 @@ func (v *Verifier) Available(ctx context.Context) bool {
 		return false
 	}
 	defer resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
+	return false
 }
 
 func (v *Verifier) Verify(ctx context.Context, reference, candidate []byte, match domain.MatchCandidate) (float64, string, error) {
