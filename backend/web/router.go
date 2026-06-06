@@ -4,76 +4,24 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
-
 	"pokemon-binder-finder/model"
 	"pokemon-binder-finder/pokemontcg"
 	"pokemon-binder-finder/service"
 )
 
-func NewRouter(catalog *pokemontcg.Catalog, searches *service.SearchService, assetsDir string) http.Handler {
+func NewRouter(catalog *pokemontcg.Catalog, searchService *service.SearchService, assetsDir string) http.Handler {
 	mux := http.NewServeMux()
+	searchHandler := NewSearchHandler(catalog, searchService)
 
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	mux.HandleFunc("GET /api/cards", func(w http.ResponseWriter, r *http.Request) {
-		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		if limit <= 0 || limit > 50 {
-			limit = 20
-		}
-		cards, err := catalog.Search(r.Context(), r.URL.Query().Get("query"), limit)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, cards)
-	})
-	mux.HandleFunc("POST /api/catalog/sync", func(w http.ResponseWriter, r *http.Request) {
-		if err := catalog.Sync(r.Context()); err != nil {
-			writeError(w, http.StatusBadGateway, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]string{"status": "synced"})
-	})
-	mux.HandleFunc("POST /api/search-jobs", func(w http.ResponseWriter, r *http.Request) {
-		var input struct {
-			CardID       string `json:"cardId"`
-			ListingQuery string `json:"listingQuery"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		job, err := searches.Create(r.Context(), input.CardID, input.ListingQuery)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		writeJSON(w, http.StatusAccepted, job)
-	})
-	mux.HandleFunc("GET /api/search-jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
-		job, err := searches.Get(r.Context(), r.PathValue("id"))
-		if err != nil {
-			writeStoreError(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, job)
-	})
-	mux.HandleFunc("GET /api/search-jobs/{id}/results", func(w http.ResponseWriter, r *http.Request) {
-		bucket := r.URL.Query().Get("bucket")
-		if bucket != model.BucketConfirmed && bucket != model.BucketPossible {
-			writeError(w, http.StatusBadRequest, errors.New("bucket must be confirmed or possible"))
-			return
-		}
-		results, err := searches.Results(r.Context(), r.PathValue("id"), bucket)
-		if err != nil {
-			writeStoreError(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, results)
-	})
+	mux.HandleFunc("GET /api/cards", searchHandler.GetCards)
+	mux.HandleFunc("POST /api/catalog/sync", searchHandler.SyncCatalog)
+	mux.HandleFunc("POST /api/search-jobs", searchHandler.SearchCardJob)
+	mux.HandleFunc("GET /api/search-jobs/{id}", searchHandler.GetCardJobById)
+	mux.HandleFunc("GET /api/search-jobs/{id}/results", searchHandler.GetCardJobResultById)
 	if assetsDir != "" {
 		mux.Handle("/api/assets/", http.StripPrefix("/api/assets/", http.FileServer(http.Dir(assetsDir))))
 	}
