@@ -15,8 +15,6 @@ type Config struct {
 	EbayClientID            string
 	EbayClientSecret        string
 	EbayMarketplaceIDs      []string
-	OllamaBaseURL           string
-	OllamaModel             string
 	MatchConfirmedThreshold float64
 	MatchPossibleThreshold  float64
 }
@@ -31,8 +29,6 @@ func Load() Config {
 		EbayClientID:            os.Getenv("EBAY_CLIENT_ID"),
 		EbayClientSecret:        os.Getenv("EBAY_CLIENT_SECRET"),
 		EbayMarketplaceIDs:      splitCSV(env("EBAY_MARKETPLACE_IDS", "EBAY_IT")),
-		OllamaBaseURL:           env("OLLAMA_BASE_URL", "http://localhost:11434"),
-		OllamaModel:             env("OLLAMA_MODEL", "qwen2.5vl:7b"),
 		MatchConfirmedThreshold: envFloat("MATCH_CONFIRMED_THRESHOLD", 0.80),
 		MatchPossibleThreshold:  envFloat("MATCH_POSSIBLE_THRESHOLD", 0.45),
 	}

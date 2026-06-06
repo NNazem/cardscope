@@ -1,4 +1,4 @@
-package local
+package vision
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 
 	"gocv.io/x/gocv"
 
-	"pokemon-binder-finder/internal/domain"
+	"pokemon-binder-finder/model"
 )
 
 type Matcher struct{}
 
-func New() *Matcher { return &Matcher{} }
+func NewMatcher() *Matcher { return &Matcher{} }
 
-func (m *Matcher) Match(_ context.Context, reference, candidate []byte) ([]domain.MatchCandidate, error) {
+func (m *Matcher) Match(_ context.Context, reference, candidate []byte) ([]model.MatchCandidate, error) {
 	ref, err := gocv.IMDecode(reference, gocv.IMReadGrayScale)
 	if err != nil {
 		return nil, fmt.Errorf("decode reference: %w", err)
@@ -84,9 +84,9 @@ func (m *Matcher) Match(_ context.Context, reference, candidate []byte) ([]domai
 	projected := gocv.NewMat()
 	defer projected.Close()
 	gocv.PerspectiveTransform(corners, &projected, homography)
-	polygon := make([]domain.PolygonPoint, 4)
+	polygon := make([]model.PolygonPoint, 4)
 	for index := range polygon {
-		polygon[index] = domain.PolygonPoint{X: int(projected.GetFloatAt(index, 0)), Y: int(projected.GetFloatAt(index, 1))}
+		polygon[index] = model.PolygonPoint{X: int(projected.GetFloatAt(index, 0)), Y: int(projected.GetFloatAt(index, 1))}
 		if polygon[index].X < 0 || polygon[index].Y < 0 || polygon[index].X > scene.Cols() || polygon[index].Y > scene.Rows() {
 			return nil, nil
 		}
@@ -97,7 +97,7 @@ func (m *Matcher) Match(_ context.Context, reference, candidate []byte) ([]domai
 	if confidence < 0.25 {
 		return nil, nil
 	}
-	return []domain.MatchCandidate{{
+	return []model.MatchCandidate{{
 		Polygon: polygon, Confidence: confidence,
 		Reason: "ORB features and RANSAC homography matched",
 	}}, nil

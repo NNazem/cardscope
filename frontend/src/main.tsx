@@ -127,7 +127,7 @@ function ResultsPage({ jobId }: { jobId: string }) {
       {job && <section className="progress-panel">
         <div className="progress-label"><span>{job.imagesAnalyzed} / {job.imagesTotal} immagini</span><strong>{progress}%</strong></div>
         <div className="progress-track"><i style={{ width: `${progress}%` }} /></div>
-        <div className="metrics"><span>{job.listingsFound} annunci</span><span>{job.confirmedMatches} confermati</span><span>{job.possibleMatches} possibili</span>{job.visionDegraded && <span>Ollama offline: modalità locale</span>}</div>
+        <div className="metrics"><span>{job.listingsFound} annunci</span><span>{job.confirmedMatches} confermati</span><span>{job.possibleMatches} possibili</span></div>
         {job.error && <p className="notice error">{job.error}</p>}
       </section>}
       <ResultSection title="Match confermati" empty="Nessun match confermato." results={confirmed} />
@@ -156,4 +156,3 @@ function Header() { return <header><a href="/" className="brand"><b>Binder</b> F
 function message(error: unknown) { return error instanceof Error ? error.message : "Errore inatteso"; }
 
 createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);
-

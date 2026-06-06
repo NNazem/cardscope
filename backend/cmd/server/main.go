@@ -6,15 +6,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"pokemon-binder-finder/internal/adapters/in/httpapi"
-	"pokemon-binder-finder/internal/adapters/out/assets/filesystem"
-	"pokemon-binder-finder/internal/adapters/out/catalog/pokemontcg"
-	"pokemon-binder-finder/internal/adapters/out/listings/ebay"
-	sqlitestore "pokemon-binder-finder/internal/adapters/out/persistence/sqlite"
-	localvision "pokemon-binder-finder/internal/adapters/out/vision/local"
-	"pokemon-binder-finder/internal/adapters/out/vision/ollama"
-	"pokemon-binder-finder/internal/application/usecases"
-	"pokemon-binder-finder/internal/platform/config"
+	"pokemon-binder-finder/config"
+	"pokemon-binder-finder/ebay"
+	"pokemon-binder-finder/pokemontcg"
+	"pokemon-binder-finder/repository"
+	"pokemon-binder-finder/service"
+	"pokemon-binder-finder/vision"
+	"pokemon-binder-finder/web"
 )
 
 func main() {
@@ -22,24 +20,23 @@ func main() {
 	if err := os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0o755); err != nil {
 		log.Fatal(err)
 	}
-	store, err := sqlitestore.Open(cfg.DatabasePath)
+	store, err := repository.Open(cfg.DatabasePath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer store.Close()
 	catalog := pokemontcg.New(store)
-	fetcher, err := filesystem.New(cfg.ImageCacheDir)
+	imageCache, err := repository.NewImageCache(cfg.ImageCacheDir)
 	if err != nil {
 		log.Fatal(err)
 	}
-	searches := usecases.NewSearchService(
+	searches := service.NewSearchService(
 		store,
 		catalog,
 		ebay.New(cfg.EbayClientID, cfg.EbayClientSecret),
-		fetcher,
-		localvision.New(),
-		ollama.New(cfg.OllamaBaseURL, cfg.OllamaModel),
-		usecases.SearchConfig{
+		imageCache,
+		vision.NewMatcher(),
+		service.SearchConfig{
 			Marketplaces:       cfg.EbayMarketplaceIDs,
 			ResultLimit:        cfg.ListingResultLimit,
 			ConfirmedThreshold: cfg.MatchConfirmedThreshold,
@@ -47,8 +44,8 @@ func main() {
 		},
 	)
 	log.Printf("listening on %s", cfg.HTTPAddr)
-	deps := httpapi.Dependencies{Catalog: catalog, Searches: searches, AssetsDir: cfg.ImageCacheDir}
-	if err := http.ListenAndServe(cfg.HTTPAddr, httpapi.NewRouter(deps)); err != nil {
+	router := web.NewRouter(catalog, searches, cfg.ImageCacheDir)
+	if err := http.ListenAndServe(cfg.HTTPAddr, router); err != nil {
 		log.Fatal(err)
 	}
 }

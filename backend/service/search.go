@@ -1,23 +1,28 @@
-package usecases
+package service
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 
-	"pokemon-binder-finder/internal/application/ports"
-	"pokemon-binder-finder/internal/domain"
+	"pokemon-binder-finder/ebay"
+	"pokemon-binder-finder/model"
+	"pokemon-binder-finder/pokemontcg"
+	"pokemon-binder-finder/repository"
+	"pokemon-binder-finder/vision"
 )
 
 type SearchService struct {
-	store              ports.Store
-	catalog            ports.CardCatalog
-	source             ports.ListingSource
-	fetcher            ports.ImageFetcher
-	matcher            ports.ImageMatcher
-	verifier           ports.VisionVerifier
+	store              *repository.Store
+	catalog            *pokemontcg.Catalog
+	source             *ebay.Source
+	imageCache         *repository.ImageCache
+	imageClient        *http.Client
+	matcher            *vision.Matcher
 	marketplaces       []string
 	resultLimit        int
 	confirmedThreshold float64
@@ -31,51 +36,51 @@ type SearchConfig struct {
 	PossibleThreshold  float64
 }
 
-func NewSearchService(store ports.Store, catalog ports.CardCatalog, source ports.ListingSource, fetcher ports.ImageFetcher, matcher ports.ImageMatcher, verifier ports.VisionVerifier, cfg SearchConfig) *SearchService {
+func NewSearchService(store *repository.Store, catalog *pokemontcg.Catalog, source *ebay.Source, imageCache *repository.ImageCache, matcher *vision.Matcher, cfg SearchConfig) *SearchService {
 	return &SearchService{
-		store: store, catalog: catalog, source: source, fetcher: fetcher, matcher: matcher, verifier: verifier,
+		store: store, catalog: catalog, source: source, imageCache: imageCache, imageClient: &http.Client{Timeout: 20 * time.Second}, matcher: matcher,
 		marketplaces: cfg.Marketplaces, resultLimit: cfg.ResultLimit,
 		confirmedThreshold: cfg.ConfirmedThreshold, possibleThreshold: cfg.PossibleThreshold,
 	}
 }
 
-func (s *SearchService) Create(ctx context.Context, cardID, query string) (domain.SearchJob, error) {
+func (s *SearchService) Create(ctx context.Context, cardID, query string) (model.SearchJob, error) {
 	if cardID == "" || query == "" {
-		return domain.SearchJob{}, fmt.Errorf("cardId and listingQuery are required")
+		return model.SearchJob{}, fmt.Errorf("cardId and listingQuery are required")
 	}
 	if _, err := s.catalog.Get(ctx, cardID); err != nil {
-		return domain.SearchJob{}, fmt.Errorf("unknown card: %w", err)
+		return model.SearchJob{}, fmt.Errorf("unknown card: %w", err)
 	}
-	job := domain.SearchJob{ID: id(), CardID: cardID, ListingQuery: query, Status: domain.JobQueued, CreatedAt: time.Now().UTC()}
+	job := model.SearchJob{ID: id(), CardID: cardID, ListingQuery: query, Status: model.JobQueued, CreatedAt: time.Now().UTC()}
 	if err := s.store.CreateJob(ctx, job); err != nil {
-		return domain.SearchJob{}, err
+		return model.SearchJob{}, err
 	}
 	go s.run(context.Background(), job)
 	return job, nil
 }
 
-func (s *SearchService) Get(ctx context.Context, id string) (domain.SearchJob, error) {
+func (s *SearchService) Get(ctx context.Context, id string) (model.SearchJob, error) {
 	return s.store.GetJob(ctx, id)
 }
 
-func (s *SearchService) Results(ctx context.Context, id, bucket string) ([]domain.SearchResult, error) {
+func (s *SearchService) Results(ctx context.Context, id, bucket string) ([]model.SearchResult, error) {
 	return s.store.ListResults(ctx, id, bucket)
 }
 
-func (s *SearchService) run(ctx context.Context, job domain.SearchJob) {
+func (s *SearchService) run(ctx context.Context, job model.SearchJob) {
 	card, err := s.catalog.Get(ctx, job.CardID)
 	if err != nil {
 		s.fail(ctx, &job, err)
 		return
 	}
-	reference, err := s.fetcher.Fetch(ctx, card.ImageURL)
+	reference, err := s.fetchImage(ctx, card.ImageURL)
 	if err != nil {
 		s.fail(ctx, &job, fmt.Errorf("download reference image: %w", err))
 		return
 	}
-	job.Status = domain.JobFetching
+	job.Status = model.JobFetching
 	_ = s.store.UpdateJob(ctx, job)
-	listings := make(map[string]domain.Listing)
+	listings := make(map[string]model.Listing)
 	for _, marketplace := range s.marketplaces {
 		found, searchErr := s.source.Search(ctx, job.ListingQuery, marketplace, s.resultLimit)
 		if searchErr != nil {
@@ -90,8 +95,7 @@ func (s *SearchService) run(ctx context.Context, job domain.SearchJob) {
 	for _, listing := range listings {
 		job.ImagesTotal += len(listing.ImageURLs)
 	}
-	job.Status = domain.JobAnalyzing
-	job.VisionDegraded = s.verifier == nil || !s.verifier.Available(ctx)
+	job.Status = model.JobAnalyzing
 	_ = s.store.UpdateJob(ctx, job)
 	for _, listing := range listings {
 		for _, imageURL := range listing.ImageURLs {
@@ -101,12 +105,12 @@ func (s *SearchService) run(ctx context.Context, job domain.SearchJob) {
 		}
 	}
 	now := time.Now().UTC()
-	job.Status, job.CompletedAt = domain.JobCompleted, &now
+	job.Status, job.CompletedAt = model.JobCompleted, &now
 	_ = s.store.UpdateJob(ctx, job)
 }
 
-func (s *SearchService) analyze(ctx context.Context, job *domain.SearchJob, listing domain.Listing, imageURL string, reference []byte) {
-	asset, err := s.fetcher.Fetch(ctx, imageURL)
+func (s *SearchService) analyze(ctx context.Context, job *model.SearchJob, listing model.Listing, imageURL string, reference []byte) {
+	asset, err := s.fetchImage(ctx, imageURL)
 	if err != nil {
 		return
 	}
@@ -115,21 +119,16 @@ func (s *SearchService) analyze(ctx context.Context, job *domain.SearchJob, list
 		return
 	}
 	for index, candidate := range candidates {
-		if candidate.Confidence >= s.possibleThreshold && candidate.Confidence < s.confirmedThreshold && !job.VisionDegraded {
-			if confidence, reason, err := s.verifier.Verify(ctx, reference, asset.Data, candidate); err == nil {
-				candidate.Confidence, candidate.Reason = confidence, reason
-			}
-		}
 		bucket := classify(candidate.Confidence, s.confirmedThreshold, s.possibleThreshold)
 		if bucket == "" {
 			continue
 		}
-		if bucket == domain.BucketConfirmed {
+		if bucket == model.BucketConfirmed {
 			job.ConfirmedMatches++
 		} else {
 			job.PossibleMatches++
 		}
-		result := domain.SearchResult{
+		result := model.SearchResult{
 			ID: id() + fmt.Sprintf("-%d", index), JobID: job.ID, ListingID: listing.ID,
 			ListingURL: listing.URL, ListingTitle: listing.Title, SourceImageURL: imageURL,
 			CachedImageURL: asset.PublicURL, Polygon: candidate.Polygon, Confidence: candidate.Confidence,
@@ -139,18 +138,38 @@ func (s *SearchService) analyze(ctx context.Context, job *domain.SearchJob, list
 	}
 }
 
-func (s *SearchService) fail(ctx context.Context, job *domain.SearchJob, err error) {
+func (s *SearchService) fail(ctx context.Context, job *model.SearchJob, err error) {
 	now := time.Now().UTC()
-	job.Status, job.Error, job.CompletedAt = domain.JobFailed, err.Error(), &now
+	job.Status, job.Error, job.CompletedAt = model.JobFailed, err.Error(), &now
 	_ = s.store.UpdateJob(ctx, *job)
+}
+
+func (s *SearchService) fetchImage(ctx context.Context, sourceURL string) (model.ImageAsset, error) {
+	if asset, ok, err := s.imageCache.Get(sourceURL); ok || err != nil {
+		return asset, err
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
+	resp, err := s.imageClient.Do(req)
+	if err != nil {
+		return model.ImageAsset{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return model.ImageAsset{}, fmt.Errorf("image download returned %s", resp.Status)
+	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return model.ImageAsset{}, err
+	}
+	return s.imageCache.Save(sourceURL, data)
 }
 
 func classify(confidence, confirmed, possible float64) string {
 	if confidence >= confirmed {
-		return domain.BucketConfirmed
+		return model.BucketConfirmed
 	}
 	if confidence >= possible {
-		return domain.BucketPossible
+		return model.BucketPossible
 	}
 	return ""
 }

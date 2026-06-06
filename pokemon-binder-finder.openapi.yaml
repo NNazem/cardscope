@@ -246,7 +246,6 @@ components:
         - imagesTotal
         - confirmedMatches
         - possibleMatches
-        - visionDegraded
         - createdAt
       properties:
         id:
@@ -268,8 +267,6 @@ components:
           type: integer
         possibleMatches:
           type: integer
-        visionDegraded:
-          type: boolean
         error:
           type: string
           nullable: true

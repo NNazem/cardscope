@@ -9,17 +9,17 @@ import (
 	"strconv"
 	"time"
 
-	"pokemon-binder-finder/internal/application/ports"
-	"pokemon-binder-finder/internal/domain"
+	"pokemon-binder-finder/model"
+	"pokemon-binder-finder/repository"
 )
 
 type Catalog struct {
 	baseURL string
 	client  *http.Client
-	store   ports.Store
+	store   *repository.Store
 }
 
-func New(store ports.Store) *Catalog {
+func New(store *repository.Store) *Catalog {
 	return &Catalog{
 		baseURL: "https://api.pokemontcg.io/v2",
 		client:  &http.Client{Timeout: 30 * time.Second},
@@ -42,15 +42,15 @@ func (c *Catalog) Sync(ctx context.Context) error {
 	}
 }
 
-func (c *Catalog) Search(ctx context.Context, query string, limit int) ([]domain.Card, error) {
+func (c *Catalog) Search(ctx context.Context, query string, limit int) ([]model.Card, error) {
 	return c.store.SearchCards(ctx, query, limit)
 }
 
-func (c *Catalog) Get(ctx context.Context, id string) (domain.Card, error) {
+func (c *Catalog) Get(ctx context.Context, id string) (model.Card, error) {
 	return c.store.GetCard(ctx, id)
 }
 
-func (c *Catalog) fetchPage(ctx context.Context, page int) ([]domain.Card, int, error) {
+func (c *Catalog) fetchPage(ctx context.Context, page int) ([]model.Card, int, error) {
 	endpoint, _ := url.Parse(c.baseURL + "/cards")
 	values := endpoint.Query()
 	values.Set("page", strconv.Itoa(page))
@@ -85,13 +85,13 @@ func (c *Catalog) fetchPage(ctx context.Context, page int) ([]domain.Card, int, 
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return nil, 0, err
 	}
-	cards := make([]domain.Card, 0, len(payload.Data))
+	cards := make([]model.Card, 0, len(payload.Data))
 	for _, item := range payload.Data {
 		imageURL := item.Images.Large
 		if imageURL == "" {
 			imageURL = item.Images.Small
 		}
-		cards = append(cards, domain.Card{
+		cards = append(cards, model.Card{
 			ID: item.ID, Name: item.Name, Number: item.Number,
 			SetID: item.Set.ID, SetName: item.Set.Name, ImageURL: imageURL,
 		})
