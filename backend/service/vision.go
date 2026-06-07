@@ -2,52 +2,51 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"pokemon-binder-finder/model"
-	"pokemon-binder-finder/repository"
 	"pokemon-binder-finder/vision"
 )
 
 type VisionService struct {
 	matcher            *vision.Matcher
-	store              *repository.Store
 	confirmedThreshold float64
 	possibleThreshold  float64
 }
 
-func NewVisionService(matcher *vision.Matcher, store *repository.Store, confirmedTreshold float64, possibleTreshold float64) *VisionService {
+func NewVisionService(matcher *vision.Matcher, confirmedThreshold float64, possibleThreshold float64) *VisionService {
 	return &VisionService{
 		matcher:            matcher,
-		store:              store,
-		confirmedThreshold: confirmedTreshold,
-		possibleThreshold:  possibleTreshold,
+		confirmedThreshold: confirmedThreshold,
+		possibleThreshold:  possibleThreshold,
 	}
 }
 
-func (v *VisionService) AnalyzeCandidates(ctx context.Context, job *model.SearchJob, listing model.Listing, asset model.ImageAsset, imageURL string, reference []byte) {
+type VisionMatch struct {
+	Polygon    []model.PolygonPoint
+	Confidence float64
+	Bucket     string
+	Reason     string
+}
+
+func (v *VisionService) AnalyzeImage(ctx context.Context, asset model.ImageAsset, reference []byte) ([]VisionMatch, error) {
 	candidates, err := v.matcher.Match(ctx, reference, asset.Data)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	for index, candidate := range candidates {
+	var matches []VisionMatch
+
+	for _, candidate := range candidates {
 		bucket := classify(candidate.Confidence, v.confirmedThreshold, v.possibleThreshold)
-		if bucket == "" {
-			continue
+		match := VisionMatch{
+			Polygon:    candidate.Polygon,
+			Confidence: candidate.Confidence,
+			Bucket:     bucket,
+			Reason:     candidate.Reason,
 		}
-		if bucket == model.BucketConfirmed {
-			job.ConfirmedMatches++
-		} else {
-			job.PossibleMatches++
-		}
-		result := model.SearchResult{
-			ID: id() + fmt.Sprintf("-%d", index), JobID: job.ID, ListingID: listing.ID,
-			ListingURL: listing.URL, ListingTitle: listing.Title, SourceImageURL: imageURL,
-			CachedImageURL: asset.PublicURL, Polygon: candidate.Polygon, Confidence: candidate.Confidence,
-			Bucket: bucket, Reason: candidate.Reason,
-		}
-		_ = v.store.SaveResult(ctx, result)
+		matches = append(matches, match)
 	}
+
+	return matches, nil
 }
 
 func classify(confidence, confirmed, possible float64) string {

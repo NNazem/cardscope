@@ -34,7 +34,7 @@ func main() {
 		catalog,
 		ebay.New(cfg.EbayClientID, cfg.EbayClientSecret),
 		imageCache,
-		service.NewVisionService(vision.NewMatcher(), store, cfg.MatchConfirmedThreshold, cfg.MatchPossibleThreshold),
+		service.NewVisionService(vision.NewMatcher(), cfg.MatchConfirmedThreshold, cfg.MatchPossibleThreshold),
 		service.SearchConfig{
 			Marketplaces: cfg.EbayMarketplaceIDs,
 			ResultLimit:  cfg.ListingResultLimit,

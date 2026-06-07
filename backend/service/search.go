@@ -107,7 +107,31 @@ func (s *SearchService) analyze(ctx context.Context, job *model.SearchJob, listi
 	if err != nil {
 		return
 	}
-	s.visionService.AnalyzeCandidates(ctx, job, listing, asset, imageURL, reference)
+	visionMatches, err := s.visionService.AnalyzeImage(ctx, asset, reference)
+	if err != nil {
+		return
+	}
+
+	for index, visionMatch := range visionMatches {
+		if visionMatch.Bucket == "" {
+			continue
+		}
+
+		if visionMatch.Bucket == model.BucketConfirmed {
+			job.ConfirmedMatches++
+		} else {
+			job.PossibleMatches++
+		}
+
+		result := model.SearchResult{
+			ID: id() + fmt.Sprintf("-%d", index), JobID: job.ID, ListingID: listing.ID,
+			ListingURL: listing.URL, ListingTitle: listing.Title, SourceImageURL: imageURL,
+			CachedImageURL: asset.PublicURL, Polygon: visionMatch.Polygon, Confidence: visionMatch.Confidence,
+			Bucket: visionMatch.Bucket, Reason: visionMatch.Reason,
+		}
+		_ = s.store.SaveResult(ctx, result)
+	}
+
 }
 
 func (s *SearchService) fail(ctx context.Context, job *model.SearchJob, err error) {
