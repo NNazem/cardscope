@@ -24,7 +24,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer store.Close()
-	catalog := service.NewCatalogService(cfg.DatabasePath)
+	catalog := service.NewCatalogService(store)
 	imageCache, err := repository.NewImageCache(cfg.ImageCacheDir)
 	if err != nil {
 		log.Fatal(err)

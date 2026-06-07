@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log"
 	"pokemon-binder-finder/model"
 	"pokemon-binder-finder/pokemontcg"
 	"pokemon-binder-finder/repository"
@@ -13,11 +12,7 @@ type CatalogService struct {
 	store         *repository.Store
 }
 
-func NewCatalogService(dbPath string) *CatalogService {
-	store, err := repository.Open(dbPath)
-	if err != nil {
-		log.Fatal(err)
-	}
+func NewCatalogService(store *repository.Store) *CatalogService {
 	return &CatalogService{
 		pokemonClient: pokemontcg.New(),
 		store:         store,
