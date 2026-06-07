@@ -5,13 +5,12 @@ import (
 	"errors"
 	"net/http"
 	"pokemon-binder-finder/model"
-	"pokemon-binder-finder/pokemontcg"
 	"pokemon-binder-finder/service"
 )
 
-func NewRouter(catalog *pokemontcg.Catalog, searchService *service.SearchService, assetsDir string) http.Handler {
+func NewRouter(catalogService *service.CatalogService, searchService *service.SearchService, assetsDir string) http.Handler {
 	mux := http.NewServeMux()
-	searchHandler := NewSearchHandler(catalog, searchService)
+	searchHandler := NewSearchHandler(catalogService, searchService)
 
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

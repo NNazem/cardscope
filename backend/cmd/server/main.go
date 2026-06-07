@@ -8,7 +8,6 @@ import (
 
 	"pokemon-binder-finder/config"
 	"pokemon-binder-finder/ebay"
-	"pokemon-binder-finder/pokemontcg"
 	"pokemon-binder-finder/repository"
 	"pokemon-binder-finder/service"
 	"pokemon-binder-finder/vision"
@@ -25,7 +24,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer store.Close()
-	catalog := pokemontcg.New(store)
+	catalog := service.NewCatalogService(cfg.DatabasePath)
 	imageCache, err := repository.NewImageCache(cfg.ImageCacheDir)
 	if err != nil {
 		log.Fatal(err)

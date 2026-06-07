@@ -11,14 +11,13 @@ import (
 
 	"pokemon-binder-finder/ebay"
 	"pokemon-binder-finder/model"
-	"pokemon-binder-finder/pokemontcg"
 	"pokemon-binder-finder/repository"
 	"pokemon-binder-finder/vision"
 )
 
 type SearchService struct {
 	store              *repository.Store
-	catalog            *pokemontcg.Catalog
+	catalogService     *CatalogService
 	source             *ebay.Source
 	imageCache         *repository.ImageCache
 	imageClient        *http.Client
@@ -36,9 +35,9 @@ type SearchConfig struct {
 	PossibleThreshold  float64
 }
 
-func NewSearchService(store *repository.Store, catalog *pokemontcg.Catalog, source *ebay.Source, imageCache *repository.ImageCache, matcher *vision.Matcher, cfg SearchConfig) *SearchService {
+func NewSearchService(store *repository.Store, catalogService *CatalogService, source *ebay.Source, imageCache *repository.ImageCache, matcher *vision.Matcher, cfg SearchConfig) *SearchService {
 	return &SearchService{
-		store: store, catalog: catalog, source: source, imageCache: imageCache, imageClient: &http.Client{Timeout: 20 * time.Second}, matcher: matcher,
+		store: store, catalogService: catalogService, source: source, imageCache: imageCache, imageClient: &http.Client{Timeout: 20 * time.Second}, matcher: matcher,
 		marketplaces: cfg.Marketplaces, resultLimit: cfg.ResultLimit,
 		confirmedThreshold: cfg.ConfirmedThreshold, possibleThreshold: cfg.PossibleThreshold,
 	}
@@ -48,7 +47,7 @@ func (s *SearchService) Create(ctx context.Context, cardID, query string) (model
 	if cardID == "" || query == "" {
 		return model.SearchJob{}, fmt.Errorf("cardId and listingQuery are required")
 	}
-	if _, err := s.catalog.Get(ctx, cardID); err != nil {
+	if _, err := s.catalogService.Get(ctx, cardID); err != nil {
 		return model.SearchJob{}, fmt.Errorf("unknown card: %w", err)
 	}
 	job := model.SearchJob{ID: id(), CardID: cardID, ListingQuery: query, Status: model.JobQueued, CreatedAt: time.Now().UTC()}
@@ -68,7 +67,7 @@ func (s *SearchService) Results(ctx context.Context, id, bucket string) ([]model
 }
 
 func (s *SearchService) run(ctx context.Context, job model.SearchJob) {
-	card, err := s.catalog.Get(ctx, job.CardID)
+	card, err := s.catalogService.Get(ctx, job.CardID)
 	if err != nil {
 		s.fail(ctx, &job, err)
 		return

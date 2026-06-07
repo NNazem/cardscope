@@ -5,14 +5,13 @@ import (
 	"errors"
 	"net/http"
 	"pokemon-binder-finder/model"
-	"pokemon-binder-finder/pokemontcg"
 	"pokemon-binder-finder/service"
 	"strconv"
 )
 
 type SearchHandler struct {
-	catalog       *pokemontcg.Catalog
-	searchService *service.SearchService
+	catalogService *service.CatalogService
+	searchService  *service.SearchService
 }
 
 type SearchJobInput struct {
@@ -20,10 +19,10 @@ type SearchJobInput struct {
 	ListingQuery string `json:"listingQuery"`
 }
 
-func NewSearchHandler(catalog *pokemontcg.Catalog, searchService *service.SearchService) *SearchHandler {
+func NewSearchHandler(catalogService *service.CatalogService, searchService *service.SearchService) *SearchHandler {
 	return &SearchHandler{
-		catalog:       catalog,
-		searchService: searchService,
+		catalogService: catalogService,
+		searchService:  searchService,
 	}
 }
 
@@ -35,7 +34,7 @@ func (sh *SearchHandler) GetCards(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cards, err := sh.catalog.Search(r.Context(), r.URL.Query().Get("query"), limit)
+	cards, err := sh.catalogService.Search(r.Context(), r.URL.Query().Get("query"), limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -45,7 +44,7 @@ func (sh *SearchHandler) GetCards(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sh *SearchHandler) SyncCatalog(w http.ResponseWriter, r *http.Request) {
-	err := sh.catalog.Sync(r.Context())
+	err := sh.catalogService.Sync(r.Context())
 
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
