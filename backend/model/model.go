@@ -1,8 +1,9 @@
-package domain
+package model
 
-import "errors"
-
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 var ErrNotFound = errors.New("not found")
 
@@ -50,7 +51,6 @@ type SearchJob struct {
 	ImagesTotal      int        `json:"imagesTotal"`
 	ConfirmedMatches int        `json:"confirmedMatches"`
 	PossibleMatches  int        `json:"possibleMatches"`
-	VisionDegraded   bool       `json:"visionDegraded"`
 	Error            string     `json:"error,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`
 	CompletedAt      *time.Time `json:"completedAt,omitempty"`

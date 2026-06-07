@@ -2,7 +2,7 @@ export type Card = { id: string; name: string; setId: string; setName: string; n
 export type SearchJob = {
   id: string; listingQuery: string; status: "queued" | "fetching" | "analyzing" | "completed" | "failed";
   listingsFound: number; imagesAnalyzed: number; imagesTotal: number; confirmedMatches: number;
-  possibleMatches: number; visionDegraded: boolean; error?: string;
+  possibleMatches: number; error?: string;
 };
 export type SearchResult = {
   id: string; listingTitle: string; listingUrl: string; cachedImageUrl: string; confidence: number;
@@ -27,4 +27,3 @@ export const api = {
   results: (id: string, bucket: "confirmed" | "possible") => request<SearchResult[]>(`/api/search-jobs/${id}/results?bucket=${bucket}`),
   asset: (path: string) => `${baseURL}${path}`,
 };
-

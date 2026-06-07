@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"pokemon-binder-finder/internal/domain"
+	"pokemon-binder-finder/model"
 )
 
 type Source struct {
@@ -38,7 +38,7 @@ func New(clientID, clientSecret string) *Source {
 	}
 }
 
-func (s *Source) Search(ctx context.Context, query, marketplace string, limit int) ([]domain.Listing, error) {
+func (s *Source) Search(ctx context.Context, query, marketplace string, limit int) ([]model.Listing, error) {
 	if s.clientID == "" || s.clientSecret == "" {
 		return nil, fmt.Errorf("ebay credentials are not configured")
 	}
@@ -74,7 +74,7 @@ func (s *Source) Search(ctx context.Context, query, marketplace string, limit in
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
-	listings := make([]domain.Listing, 0, len(payload.Items))
+	listings := make([]model.Listing, 0, len(payload.Items))
 	for _, item := range payload.Items {
 		images := appendImage(nil, item.Image.URL)
 		for _, candidate := range item.Images {
@@ -85,7 +85,7 @@ func (s *Source) Search(ctx context.Context, query, marketplace string, limit in
 				images = appendImage(images, candidate)
 			}
 		}
-		listings = append(listings, domain.Listing{
+		listings = append(listings, model.Listing{
 			ID: item.ID, Title: item.Title, URL: item.URL, ImageURLs: images, Marketplace: marketplace,
 		})
 	}
