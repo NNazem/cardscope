@@ -34,12 +34,10 @@ func main() {
 		catalog,
 		ebay.New(cfg.EbayClientID, cfg.EbayClientSecret),
 		imageCache,
-		vision.NewMatcher(),
+		service.NewVisionService(vision.NewMatcher(), store, cfg.MatchConfirmedThreshold, cfg.MatchPossibleThreshold),
 		service.SearchConfig{
-			Marketplaces:       cfg.EbayMarketplaceIDs,
-			ResultLimit:        cfg.ListingResultLimit,
-			ConfirmedThreshold: cfg.MatchConfirmedThreshold,
-			PossibleThreshold:  cfg.MatchPossibleThreshold,
+			Marketplaces: cfg.EbayMarketplaceIDs,
+			ResultLimit:  cfg.ListingResultLimit,
 		},
 	)
 	log.Printf("listening on %s", cfg.HTTPAddr)

@@ -12,34 +12,28 @@ import (
 	"pokemon-binder-finder/ebay"
 	"pokemon-binder-finder/model"
 	"pokemon-binder-finder/repository"
-	"pokemon-binder-finder/vision"
 )
 
 type SearchService struct {
-	store              *repository.Store
-	catalogService     *CatalogService
-	source             *ebay.Source
-	imageCache         *repository.ImageCache
-	imageClient        *http.Client
-	matcher            *vision.Matcher
-	marketplaces       []string
-	resultLimit        int
-	confirmedThreshold float64
-	possibleThreshold  float64
+	store          *repository.Store
+	catalogService *CatalogService
+	source         *ebay.Source
+	imageCache     *repository.ImageCache
+	imageClient    *http.Client
+	visionService  *VisionService
+	marketplaces   []string
+	resultLimit    int
 }
 
 type SearchConfig struct {
-	Marketplaces       []string
-	ResultLimit        int
-	ConfirmedThreshold float64
-	PossibleThreshold  float64
+	Marketplaces []string
+	ResultLimit  int
 }
 
-func NewSearchService(store *repository.Store, catalogService *CatalogService, source *ebay.Source, imageCache *repository.ImageCache, matcher *vision.Matcher, cfg SearchConfig) *SearchService {
+func NewSearchService(store *repository.Store, catalogService *CatalogService, source *ebay.Source, imageCache *repository.ImageCache, visionService *VisionService, cfg SearchConfig) *SearchService {
 	return &SearchService{
-		store: store, catalogService: catalogService, source: source, imageCache: imageCache, imageClient: &http.Client{Timeout: 20 * time.Second}, matcher: matcher,
+		store: store, catalogService: catalogService, source: source, imageCache: imageCache, imageClient: &http.Client{Timeout: 20 * time.Second}, visionService: visionService,
 		marketplaces: cfg.Marketplaces, resultLimit: cfg.ResultLimit,
-		confirmedThreshold: cfg.ConfirmedThreshold, possibleThreshold: cfg.PossibleThreshold,
 	}
 }
 
@@ -113,28 +107,7 @@ func (s *SearchService) analyze(ctx context.Context, job *model.SearchJob, listi
 	if err != nil {
 		return
 	}
-	candidates, err := s.matcher.Match(ctx, reference, asset.Data)
-	if err != nil {
-		return
-	}
-	for index, candidate := range candidates {
-		bucket := classify(candidate.Confidence, s.confirmedThreshold, s.possibleThreshold)
-		if bucket == "" {
-			continue
-		}
-		if bucket == model.BucketConfirmed {
-			job.ConfirmedMatches++
-		} else {
-			job.PossibleMatches++
-		}
-		result := model.SearchResult{
-			ID: id() + fmt.Sprintf("-%d", index), JobID: job.ID, ListingID: listing.ID,
-			ListingURL: listing.URL, ListingTitle: listing.Title, SourceImageURL: imageURL,
-			CachedImageURL: asset.PublicURL, Polygon: candidate.Polygon, Confidence: candidate.Confidence,
-			Bucket: bucket, Reason: candidate.Reason,
-		}
-		_ = s.store.SaveResult(ctx, result)
-	}
+	s.visionService.AnalyzeCandidates(ctx, job, listing, asset, imageURL, reference)
 }
 
 func (s *SearchService) fail(ctx context.Context, job *model.SearchJob, err error) {
@@ -161,16 +134,6 @@ func (s *SearchService) fetchImage(ctx context.Context, sourceURL string) (model
 		return model.ImageAsset{}, err
 	}
 	return s.imageCache.Save(sourceURL, data)
-}
-
-func classify(confidence, confirmed, possible float64) string {
-	if confidence >= confirmed {
-		return model.BucketConfirmed
-	}
-	if confidence >= possible {
-		return model.BucketPossible
-	}
-	return ""
 }
 
 func id() string {
