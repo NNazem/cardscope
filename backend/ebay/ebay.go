@@ -15,7 +15,7 @@ import (
 	"pokemon-binder-finder/model"
 )
 
-type Source struct {
+type EbayClient struct {
 	client       *http.Client
 	clientID     string
 	clientSecret string
@@ -27,8 +27,8 @@ type Source struct {
 	tokenExpiry  time.Time
 }
 
-func New(clientID, clientSecret string) *Source {
-	return &Source{
+func New(clientID, clientSecret string) *EbayClient {
+	return &EbayClient{
 		client:       &http.Client{Timeout: 30 * time.Second},
 		clientID:     clientID,
 		clientSecret: clientSecret,
@@ -38,7 +38,7 @@ func New(clientID, clientSecret string) *Source {
 	}
 }
 
-func (s *Source) Search(ctx context.Context, query, marketplace string, limit int) ([]model.Listing, error) {
+func (s *EbayClient) Search(ctx context.Context, query, marketplace string, limit int) ([]model.Listing, error) {
 	if s.clientID == "" || s.clientSecret == "" {
 		return nil, fmt.Errorf("ebay credentials are not configured")
 	}
@@ -92,7 +92,7 @@ func (s *Source) Search(ctx context.Context, query, marketplace string, limit in
 	return listings, nil
 }
 
-func (s *Source) getImages(ctx context.Context, token, marketplace, itemID string) ([]string, error) {
+func (s *EbayClient) getImages(ctx context.Context, token, marketplace, itemID string) ([]string, error) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, s.itemURL+url.PathEscape(itemID), nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("X-EBAY-C-MARKETPLACE-ID", marketplace)
@@ -134,7 +134,7 @@ func appendImage(images []string, candidate string) []string {
 	return append(images, candidate)
 }
 
-func (s *Source) accessToken(ctx context.Context) (string, error) {
+func (s *EbayClient) accessToken(ctx context.Context) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.token != "" && time.Now().Before(s.tokenExpiry.Add(-time.Minute)) {

@@ -27,8 +27,8 @@ type VisionMatch struct {
 	Reason     string
 }
 
-func (v *VisionService) AnalyzeImage(ctx context.Context, asset model.ImageAsset, reference []byte) ([]VisionMatch, error) {
-	candidates, err := v.matcher.Match(ctx, reference, asset.Data)
+func (v *VisionService) AnalyzeImage(ctx context.Context, target model.ImageAsset, reference []byte) ([]VisionMatch, error) {
+	candidates, err := v.matcher.Match(ctx, reference, target.Data)
 	if err != nil {
 		return nil, err
 	}

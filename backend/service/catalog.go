@@ -38,6 +38,6 @@ func (c *CatalogService) Search(ctx context.Context, query string, limit int) ([
 	return c.store.SearchCards(ctx, query, limit)
 }
 
-func (c *CatalogService) Get(ctx context.Context, id string) (model.Card, error) {
+func (c *CatalogService) GetCard(ctx context.Context, id string) (model.Card, error) {
 	return c.store.GetCard(ctx, id)
 }

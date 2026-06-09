@@ -63,7 +63,7 @@ func (sh *SearchHandler) SearchCardJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, err := sh.searchService.Create(r.Context(), input.CardID, input.ListingQuery)
+	job, err := sh.searchService.SearchCard(r.Context(), input.CardID, input.ListingQuery)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
