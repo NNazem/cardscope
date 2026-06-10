@@ -32,7 +32,7 @@ func main() {
 	searches := service.NewSearchService(
 		store,
 		catalog,
-		ebay.New(cfg.EbayClientID, cfg.EbayClientSecret),
+		service.NewEbayService(ebay.New(cfg.EbayClientID, cfg.EbayClientSecret)),
 		imageCache,
 		service.NewVisionService(vision.NewMatcher(), cfg.MatchConfirmedThreshold, cfg.MatchPossibleThreshold),
 		service.SearchConfig{

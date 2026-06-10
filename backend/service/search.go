@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"pokemon-binder-finder/ebay"
 	"pokemon-binder-finder/model"
 	"pokemon-binder-finder/repository"
 )
@@ -17,7 +16,7 @@ import (
 type SearchService struct {
 	store          *repository.Store
 	catalogService *CatalogService
-	source         *ebay.EbayClient
+	ebayService    *EbayService
 	imageCache     *repository.ImageCache
 	imageClient    *http.Client
 	visionService  *VisionService
@@ -30,9 +29,9 @@ type SearchConfig struct {
 	ResultLimit  int
 }
 
-func NewSearchService(store *repository.Store, catalogService *CatalogService, source *ebay.EbayClient, imageCache *repository.ImageCache, visionService *VisionService, cfg SearchConfig) *SearchService {
+func NewSearchService(store *repository.Store, catalogService *CatalogService, ebayService *EbayService, imageCache *repository.ImageCache, visionService *VisionService, cfg SearchConfig) *SearchService {
 	return &SearchService{
-		store: store, catalogService: catalogService, source: source, imageCache: imageCache, imageClient: &http.Client{Timeout: 20 * time.Second}, visionService: visionService,
+		store: store, catalogService: catalogService, ebayService: ebayService, imageCache: imageCache, imageClient: &http.Client{Timeout: 20 * time.Second}, visionService: visionService,
 		marketplaces: cfg.Marketplaces, resultLimit: cfg.ResultLimit,
 	}
 }
@@ -102,7 +101,7 @@ func (s *SearchService) analyzeListings(ctx context.Context, job model.SearchJob
 func (s *SearchService) fetchListings(ctx context.Context, job model.SearchJob) map[string]model.Listing {
 	listings := make(map[string]model.Listing)
 	for _, marketplace := range s.marketplaces {
-		found, searchErr := s.source.Search(ctx, job.ListingQuery, marketplace, s.resultLimit)
+		found, searchErr := s.ebayService.Search(ctx, job.ListingQuery, marketplace, s.resultLimit)
 		if searchErr != nil {
 			continue
 		}
