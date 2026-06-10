@@ -29,11 +29,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	imageService := service.NewImageService(imageCache)
 	searches := service.NewSearchService(
 		store,
 		catalog,
 		service.NewEbayService(ebay.New(cfg.EbayClientID, cfg.EbayClientSecret)),
-		imageCache,
+		imageService,
 		service.NewVisionService(vision.NewMatcher(), cfg.MatchConfirmedThreshold, cfg.MatchPossibleThreshold),
 		service.SearchConfig{
 			Marketplaces: cfg.EbayMarketplaceIDs,
