@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -42,8 +40,8 @@ func (s *SearchService) SearchCard(ctx context.Context, cardID, query string) (m
 		return model.SearchJob{}, fmt.Errorf("unknown card: %w", err)
 	}
 
-	job := model.SearchJob{ID: id(), CardID: cardID, ListingQuery: query, Status: model.JobQueued, CreatedAt: time.Now().UTC()}
-	if err := s.jobService.CreateJob(ctx, job); err != nil {
+	job, err := s.jobService.CreateJob(ctx, cardID, query)
+	if err != nil {
 		return model.SearchJob{}, err
 	}
 	go s.executeJob(context.Background(), job, referenceCard)
@@ -53,7 +51,7 @@ func (s *SearchService) SearchCard(ctx context.Context, cardID, query string) (m
 func (s *SearchService) executeJob(ctx context.Context, job model.SearchJob, referenceCard model.Card) {
 	reference, err := s.imageService.FetchImage(ctx, referenceCard.ImageURL)
 	if err != nil {
-		s.fail(ctx, &job, fmt.Errorf("download reference image: %w", err))
+		s.jobService.FailJob(ctx, &job, fmt.Errorf("download reference image: %w", err))
 		return
 	}
 
@@ -121,25 +119,7 @@ func (s *SearchService) analyze(ctx context.Context, job *model.SearchJob, listi
 			job.PossibleMatches++
 		}
 
-		result := model.SearchResult{
-			ID: id() + fmt.Sprintf("-%d", index), JobID: job.ID, ListingID: listing.ID,
-			ListingURL: listing.URL, ListingTitle: listing.Title, SourceImageURL: targetImageURL,
-			CachedImageURL: target.PublicURL, Polygon: visionMatch.Polygon, Confidence: visionMatch.Confidence,
-			Bucket: visionMatch.Bucket, Reason: visionMatch.Reason,
-		}
-		_ = s.jobService.SaveResult(ctx, result)
+		_, _ = s.jobService.SaveMatchResult(ctx, job.ID, listing, targetImageURL, target, visionMatch, index)
 	}
 
-}
-
-func (s *SearchService) fail(ctx context.Context, job *model.SearchJob, err error) {
-	now := time.Now().UTC()
-	job.Status, job.Error, job.CompletedAt = model.JobFailed, err.Error(), &now
-	_ = s.jobService.UpdateJob(ctx, *job)
-}
-
-func id() string {
-	value := make([]byte, 16)
-	_, _ = rand.Read(value)
-	return hex.EncodeToString(value)
 }
