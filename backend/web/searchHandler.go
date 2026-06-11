@@ -12,6 +12,7 @@ import (
 type SearchHandler struct {
 	catalogService *service.CatalogService
 	searchService  *service.SearchService
+	jobService     *service.JobService
 }
 
 type SearchJobInput struct {
@@ -19,10 +20,11 @@ type SearchJobInput struct {
 	ListingQuery string `json:"listingQuery"`
 }
 
-func NewSearchHandler(catalogService *service.CatalogService, searchService *service.SearchService) *SearchHandler {
+func NewSearchHandler(catalogService *service.CatalogService, searchService *service.SearchService, jobService *service.JobService) *SearchHandler {
 	return &SearchHandler{
 		catalogService: catalogService,
 		searchService:  searchService,
+		jobService:     jobService,
 	}
 }
 
@@ -75,7 +77,7 @@ func (sh *SearchHandler) SearchCardJob(w http.ResponseWriter, r *http.Request) {
 func (sh *SearchHandler) GetCardJobById(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	job, err := sh.searchService.Get(r.Context(), id)
+	job, err := sh.jobService.Get(r.Context(), id)
 
 	if err != nil {
 		writeStoreError(w, err)
@@ -91,7 +93,7 @@ func (sh *SearchHandler) GetCardJobResultById(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, errors.New("bucket must be confirmed or possible"))
 		return
 	}
-	results, err := sh.searchService.Results(r.Context(), r.PathValue("id"), bucket)
+	results, err := sh.jobService.Results(r.Context(), r.PathValue("id"), bucket)
 	if err != nil {
 		writeStoreError(w, err)
 		return

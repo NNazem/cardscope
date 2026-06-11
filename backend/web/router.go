@@ -8,9 +8,9 @@ import (
 	"pokemon-binder-finder/service"
 )
 
-func NewRouter(catalogService *service.CatalogService, searchService *service.SearchService, assetsDir string) http.Handler {
+func NewRouter(catalogService *service.CatalogService, searchService *service.SearchService, jobService *service.JobService, assetsDir string) http.Handler {
 	mux := http.NewServeMux()
-	searchHandler := NewSearchHandler(catalogService, searchService)
+	searchHandler := NewSearchHandler(catalogService, searchService, jobService)
 
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

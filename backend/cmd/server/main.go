@@ -30,8 +30,9 @@ func main() {
 		log.Fatal(err)
 	}
 	imageService := service.NewImageService(imageCache)
+	jobService := service.NewJobService(store)
 	searches := service.NewSearchService(
-		store,
+		jobService,
 		catalog,
 		service.NewEbayService(ebay.New(cfg.EbayClientID, cfg.EbayClientSecret)),
 		imageService,
@@ -42,7 +43,7 @@ func main() {
 		},
 	)
 	log.Printf("listening on %s", cfg.HTTPAddr)
-	router := web.NewRouter(catalog, searches, cfg.ImageCacheDir)
+	router := web.NewRouter(catalog, searches, jobService, cfg.ImageCacheDir)
 	if err := http.ListenAndServe(cfg.HTTPAddr, router); err != nil {
 		log.Fatal(err)
 	}

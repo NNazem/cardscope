@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"pokemon-binder-finder/model"
-	"pokemon-binder-finder/repository"
 )
 
 type SearchService struct {
-	store          *repository.Store
+	jobService     *JobService
 	catalogService *CatalogService
 	ebayService    *EbayService
 	imageService   *ImageService
@@ -26,9 +25,9 @@ type SearchConfig struct {
 	ResultLimit  int
 }
 
-func NewSearchService(store *repository.Store, catalogService *CatalogService, ebayService *EbayService, imageService *ImageService, visionService *VisionService, cfg SearchConfig) *SearchService {
+func NewSearchService(jobService *JobService, catalogService *CatalogService, ebayService *EbayService, imageService *ImageService, visionService *VisionService, cfg SearchConfig) *SearchService {
 	return &SearchService{
-		store: store, catalogService: catalogService, ebayService: ebayService, imageService: imageService, visionService: visionService,
+		jobService: jobService, catalogService: catalogService, ebayService: ebayService, imageService: imageService, visionService: visionService,
 		marketplaces: cfg.Marketplaces, resultLimit: cfg.ResultLimit,
 	}
 }
@@ -44,19 +43,11 @@ func (s *SearchService) SearchCard(ctx context.Context, cardID, query string) (m
 	}
 
 	job := model.SearchJob{ID: id(), CardID: cardID, ListingQuery: query, Status: model.JobQueued, CreatedAt: time.Now().UTC()}
-	if err := s.store.CreateJob(ctx, job); err != nil {
+	if err := s.jobService.CreateJob(ctx, job); err != nil {
 		return model.SearchJob{}, err
 	}
 	go s.executeJob(context.Background(), job, referenceCard)
 	return job, nil
-}
-
-func (s *SearchService) Get(ctx context.Context, id string) (model.SearchJob, error) {
-	return s.store.GetJob(ctx, id)
-}
-
-func (s *SearchService) Results(ctx context.Context, id, bucket string) ([]model.SearchResult, error) {
-	return s.store.ListResults(ctx, id, bucket)
 }
 
 func (s *SearchService) executeJob(ctx context.Context, job model.SearchJob, referenceCard model.Card) {
@@ -67,7 +58,7 @@ func (s *SearchService) executeJob(ctx context.Context, job model.SearchJob, ref
 	}
 
 	job.Status = model.JobFetching
-	_ = s.store.UpdateJob(ctx, job)
+	_ = s.jobService.UpdateJob(ctx, job)
 
 	listings := s.fetchListings(ctx, job)
 	job.ListingsFound = len(listings)
@@ -76,13 +67,13 @@ func (s *SearchService) executeJob(ctx context.Context, job model.SearchJob, ref
 	}
 
 	job.Status = model.JobAnalyzing
-	_ = s.store.UpdateJob(ctx, job)
+	_ = s.jobService.UpdateJob(ctx, job)
 
 	s.analyzeListings(ctx, job, listings, reference)
 
 	now := time.Now().UTC()
 	job.Status, job.CompletedAt = model.JobCompleted, &now
-	_ = s.store.UpdateJob(ctx, job)
+	_ = s.jobService.UpdateJob(ctx, job)
 }
 
 func (s *SearchService) analyzeListings(ctx context.Context, job model.SearchJob, listings map[string]model.Listing, reference model.ImageAsset) {
@@ -90,7 +81,7 @@ func (s *SearchService) analyzeListings(ctx context.Context, job model.SearchJob
 		for _, targetImageURL := range listing.ImageURLs {
 			s.analyze(ctx, &job, listing, targetImageURL, reference.Data)
 			job.ImagesAnalyzed++
-			_ = s.store.UpdateJob(ctx, job)
+			_ = s.jobService.UpdateJob(ctx, job)
 		}
 	}
 }
@@ -136,7 +127,7 @@ func (s *SearchService) analyze(ctx context.Context, job *model.SearchJob, listi
 			CachedImageURL: target.PublicURL, Polygon: visionMatch.Polygon, Confidence: visionMatch.Confidence,
 			Bucket: visionMatch.Bucket, Reason: visionMatch.Reason,
 		}
-		_ = s.store.SaveResult(ctx, result)
+		_ = s.jobService.SaveResult(ctx, result)
 	}
 
 }
@@ -144,7 +135,7 @@ func (s *SearchService) analyze(ctx context.Context, job *model.SearchJob, listi
 func (s *SearchService) fail(ctx context.Context, job *model.SearchJob, err error) {
 	now := time.Now().UTC()
 	job.Status, job.Error, job.CompletedAt = model.JobFailed, err.Error(), &now
-	_ = s.store.UpdateJob(ctx, *job)
+	_ = s.jobService.UpdateJob(ctx, *job)
 }
 
 func id() string {
