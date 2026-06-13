@@ -37,6 +37,8 @@ button:disabled { cursor: not-allowed; opacity: .52; }
 .progress-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 9px; }
 .progress-track { background: #e4ebe5; border-radius: 99px; height: 8px; overflow: hidden; }
 .progress-track i { background: #208262; display: block; height: 100%; transition: width .3s ease; }
+.progress-track.completed { background: #dff3e8; }
+.progress-track.completed i { background: #1f9d63; }
 .metrics span { border: 1px solid #e3e9e4; border-radius: 99px; color: #607067; font-size: 12px; padding: 7px 10px; }
 .result-section { margin-top: 46px; }
 h2 { font-size: 22px; letter-spacing: -.04em; }
@@ -52,4 +54,3 @@ h3 { font-size: 15px; line-height: 1.4; margin: 8px 0; }
 .result-body p { color: #69756f; font-size: 12px; line-height: 1.5; }
 .result-body a { color: #176f52; font-size: 13px; font-weight: 800; text-decoration: none; }
 @media (max-width: 640px) { header { margin-bottom: 46px; } .hero-card { display: none; } .panel { padding: 18px; } .actions { align-items: stretch; flex-direction: column-reverse; } }
-

@@ -114,7 +114,7 @@ function ResultsPage({ jobId }: { jobId: string }) {
     return () => { active = false; };
   }, [jobId]);
 
-  const progress = job?.imagesTotal ? Math.round((job.imagesAnalyzed / job.imagesTotal) * 100) : 0;
+  const progress = job ? jobProgress(job) : 0;
   return (
     <main className="shell">
       <Header />
@@ -126,7 +126,7 @@ function ResultsPage({ jobId }: { jobId: string }) {
       {error && <p className="notice error">{error}</p>}
       {job && <section className="progress-panel">
         <div className="progress-label"><span>{job.imagesAnalyzed} / {job.imagesTotal} immagini</span><strong>{progress}%</strong></div>
-        <div className="progress-track"><i style={{ width: `${progress}%` }} /></div>
+        <div className={`progress-track ${job.status}`}><i style={{ width: `${progress}%` }} /></div>
         <div className="metrics"><span>{job.listingsFound} annunci</span><span>{job.confirmedMatches} confermati</span><span>{job.possibleMatches} possibili</span></div>
         {job.error && <p className="notice error">{job.error}</p>}
       </section>}
@@ -153,6 +153,11 @@ function ResultCard({ result }: { result: SearchResult }) {
 }
 
 function Header() { return <header><a href="/" className="brand"><b>Binder</b> Finder</a><span>Local-first MVP</span></header>; }
+function jobProgress(job: SearchJob) {
+  if (job.status === "completed") return 100;
+  if (!job.imagesTotal) return 0;
+  return Math.min(100, Math.round((job.imagesAnalyzed / job.imagesTotal) * 100));
+}
 function message(error: unknown) { return error instanceof Error ? error.message : "Errore inatteso"; }
 
 createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);
