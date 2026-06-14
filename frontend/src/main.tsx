@@ -146,7 +146,7 @@ function ResultCard({ result }: { result: SearchResult }) {
   return <article className="result-card">
     <div className="image-wrap">
       <img src={api.asset(result.cachedImageUrl)} alt={result.listingTitle} onLoad={(event) => setSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} />
-      <svg viewBox={`0 0 ${size.width} ${size.height}`} preserveAspectRatio="none"><polygon points={points} /></svg>
+      <svg viewBox={`0 0 ${size.width} ${size.height}`} preserveAspectRatio="xMidYMid meet"><polygon points={points} /></svg>
     </div>
     <div className="result-body"><div className="confidence">{Math.round(result.confidence * 100)}%</div><h3>{result.listingTitle}</h3><p>{result.reason}</p><a href={result.listingUrl} target="_blank">Apri su eBay ↗</a></div>
   </article>;
